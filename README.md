@@ -50,7 +50,7 @@ With no env vars the app runs in **demo mode** (see below). Each integration is 
 
 1. Create a key at [Google AI Studio](https://aistudio.google.com/apikey).
 2. Set `GEMINI_API_KEY` (server-only; there is no `NEXT_PUBLIC_` variant and the browser never sees it).
-3. Optional: `GEMINI_MODEL` (default `gemini-2.5-flash`).
+3. Optional: `GEMINI_MODEL`, one model or a comma-separated fallback list tried in order when a model returns quota/overload/not-found errors (default `gemini-3.5-flash-lite,gemini-2.5-flash`). Free-tier quotas are small and per model (e.g. `gemini-2.5-flash` allows about 20 requests/day), and each message costs one request per receiving viewer, so enable billing for a real deployment.
 
 Without a key, the room still syncs but incoming messages show original text only, with a visible "Translation unavailable" notice.
 The landing page shows the live status of both integrations.
@@ -79,7 +79,7 @@ Each tab keeps its own identity (via `sessionStorage`), so two tabs of one brows
 - [ ] Send a message in A, then **That's not what I meant**: the message is flagged on both screens; the next message is shown as "Clarifying" with a quote.
 - [ ] Send a message in A, then **I changed my mind**: the message is struck through on both; the next message is a "New position".
 - [ ] Switch B's language in the header: new messages translate to the new language.
-- [ ] Set A's interface to ES and B's to EN: each UI is in its own language, and toggling one never changes the other's. Messages show "Original · <source>" and "Translation · <your language>".
+- [ ] Pick different languages on each side (e.g. Español / Italiano): each person's whole interface switches to their language, and changing one never changes the other's. Messages show "Original · <source>" and "Translation · <your language>".
 - [ ] Message of 501+ characters is rejected with an error; Enter sends, Shift+Enter adds a newline.
 - [ ] Unset `GEMINI_API_KEY` and restart: "Translation unavailable" notice appears; with an invalid key, a per-message error and **Retry translation** button appear.
 - [ ] Open the link in a third window: "This room is full."
@@ -94,6 +94,16 @@ Each tab keeps its own identity (via `sessionStorage`), so two tabs of one brows
 4. Open the deployed URL in two browsers and run the checklist above.
 
 Or with the CLI: `npx vercel` then `npx vercel --prod`.
+
+## Tests
+
+```bash
+npm test          # unit tests: every locale complete, placeholders preserved, fallback, detection, RTL (needs Node 22.18+)
+npm run test:e2e  # two real browsers: one language selection drives each participant's whole UI and their message translation
+```
+
+`test:e2e` needs the app running with Supabase configured (`BASE_URL=http://localhost:3000`) and Google Chrome (`CHROME_PATH` to override). It mocks
+`/api/translate` in the browser, so it uses no Gemini quota, and asserts the `from`/`to` languages of each translation request.
 
 ## Scripts
 
@@ -114,10 +124,14 @@ npm run lint    # ESLint
 - **The translation endpoint is unauthenticated and not rate-limited**, so anyone who finds your deployment can spend your Gemini quota. Add
   a rate limiter (e.g. Upstash) or Vercel firewall rules before sharing widely.
 - **Each viewer translates separately**, so two browsers can render slightly different wordings of the same message, and each message costs one API call per receiving viewer.
-- **Interface languages are English and Spanish only.** The UI language (`EN | ES` toggle) is per browser, stored in `localStorage`, and never
-  sent to the other participant. It is independent of the language you *speak* (the "I speak" selector): changing one never changes the other.
-  Speakers of other languages still get translated messages, with the UI in whichever of EN/ES they choose. The UI is translated from a typed
-  dictionary (`lib/i18n.ts`), never through the AI API; adding a key without a Spanish entry fails the TypeScript build.
+- **One language selection per participant.** The language you pick (landing form, join form, or the selector in the room header) is both the language of
+  your whole interface and the language you write in; your messages are translated into the *other* participant's selected language. It is applied per browser,
+  saved in `localStorage` (and per tab for the room), and only the language *you write in* is shared with the room; nobody else's interface changes. UI strings live in
+  typed dictionaries (`lib/locales/<code>.ts`, English in `en.ts` is the source of truth) for all 14 selectable languages, so every selectable language has a full UI
+  translation. Nothing in the UI goes through the AI API. A missing string falls back to English, never a raw key; the compiler and `npm test` enforce that every
+  locale is complete with matching `{placeholders}`. Arabic switches the page to right-to-left. Language names use `Intl.DisplayNames`. The translations are
+  AI-drafted and have not been reviewed by native speakers.
+- Dynamic technical detail (e.g. the raw error text Supabase returns on a connection failure) and the page `<title>`/Open Graph tags rendered on the server stay English.
 - **Landing status chips are setup checks, not health checks.** "Realtime messaging" / "AI-powered translation" mean the variables are present; they don't prove
   Supabase or Gemini are reachable. Missing configuration is flagged in amber. The room's own badge shows the real connection state.
 - Page title and Open Graph tags are English (they're rendered on the server, which doesn't know the visitor's UI language); the browser tab title follows the UI language on the landing page.

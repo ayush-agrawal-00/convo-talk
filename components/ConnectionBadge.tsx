@@ -17,6 +17,7 @@ export function ConnectionBadge({ connection }: { connection: Connection }) {
   return (
     <span
       role="status"
+      data-testid="connection-status"
       aria-live="polite"
       className={`inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs font-semibold ${m.extra ?? ""}`}
     >

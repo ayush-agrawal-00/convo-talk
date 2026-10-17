@@ -1,4 +1,4 @@
-import type { MessageKey } from "./i18n";
+import type { MessageKey } from "./locales/en.ts";
 
 export const MAX_MESSAGE_LENGTH = 500;
 export const MAX_NAME_LENGTH = 24;

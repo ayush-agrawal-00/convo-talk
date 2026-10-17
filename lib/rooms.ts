@@ -56,6 +56,12 @@ export function saveSessionProfile(roomId: string, p: Stored) {
   window.localStorage.setItem(PREFILL_KEY, JSON.stringify(p));
 }
 
+/** Remembers the chosen language (which is both the UI language and the conversation language), keeping any saved name. */
+export function savePrefillLang(lang: string) {
+  const prev = loadPrefill();
+  window.localStorage.setItem(PREFILL_KEY, JSON.stringify({ name: prev?.name ?? "", lang }));
+}
+
 export function buildInviteUrl(roomId: string, host: Stored): string {
   const u = new URL(`/room/${roomId}`, window.location.origin);
   u.searchParams.set("l", host.lang);

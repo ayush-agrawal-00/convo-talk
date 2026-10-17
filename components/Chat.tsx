@@ -5,18 +5,18 @@ import { Check, Copy, FlaskConical, Hand, TriangleAlert } from "lucide-react";
 import { Composer, type ComposerIntent } from "./Composer";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { useI18n } from "./I18nProvider";
-import { LocaleToggle } from "./LocaleToggle";
 import { MessageBubble, ReactionPill } from "./MessageBubble";
 import { useRoom } from "@/hooks/useRoom";
 import { useTranslationStatus } from "@/hooks/useServerConfig";
 import { useTranslations } from "@/hooks/useTranslations";
 import { getLanguage, LANGUAGES } from "@/lib/languages";
+import { isLocale } from "@/lib/i18n";
 import type { ReactionKey } from "@/lib/reactions";
 import { buildInviteUrl, saveSessionProfile } from "@/lib/rooms";
 import type { ChatMessage, Profile } from "@/lib/types";
 
 export function Chat({ roomId, profile, onProfile }: { roomId: string; profile: Profile; onProfile: (p: Profile) => void }) {
-  const { t, langName } = useI18n();
+  const { t, langName, setLocale } = useI18n();
   const room = useRoom(roomId, profile);
   const translationStatus = useTranslationStatus();
   const translationUnavailable = !room.demo && translationStatus === "off";
@@ -83,6 +83,8 @@ export function Chat({ roomId, profile, onProfile }: { roomId: string; profile: 
     const next = { ...profile, lang };
     saveSessionProfile(roomId, next);
     onProfile(next);
+    // One selection: the same choice switches this participant's whole interface (and nobody else's).
+    if (isLocale(lang)) setLocale(lang);
   }
 
   if (room.isFull) {
@@ -104,12 +106,9 @@ export function Chat({ roomId, profile, onProfile }: { roomId: string; profile: 
     <div className="flex h-dvh flex-col">
       <header className="border-b border-line bg-paper px-3 py-3 sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="font-display text-xl font-semibold tracking-tight">convoTalk</Link>
-              <LocaleToggle />
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <Link href="/" className="font-display text-xl font-semibold tracking-tight">convoTalk</Link>
+            <div className="flex flex-wrap items-center gap-2">
               <ConnectionBadge connection={room.connection} />
               <button
                 onClick={copyInvite}

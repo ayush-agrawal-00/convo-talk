@@ -109,12 +109,19 @@ export function Composer(p: Props) {
             aria-label={sendLabel}
             className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-2xl bg-ink px-5 font-semibold text-paper transition hover:bg-ember focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink"
           >
-            <span className="hidden sm:inline">{sendLabel}</span> <SendHorizontal size={18} aria-hidden />
+            <span className="hidden sm:inline">{sendLabel}</span> <SendHorizontal size={18} className="rtl:-scale-x-100" aria-hidden />
           </button>
         </div>
         <div id="composer-help" className="mt-1.5 flex min-h-5 items-center justify-between gap-3 text-xs text-muted">
           {error ? <span role="alert" className="font-semibold text-ember">{t(error)}</span> : <span>{t("composer.help")}</span>}
-          <span className={remaining < 0 ? "font-semibold text-ember" : remaining < 80 ? "text-amber" : ""}>{text.length}/{MAX_MESSAGE_LENGTH}</span>
+          <span
+            title={t("composer.counter", { count: text.length, max: MAX_MESSAGE_LENGTH })}
+            aria-label={t("composer.counter", { count: text.length, max: MAX_MESSAGE_LENGTH })}
+            dir="ltr"
+            className={remaining < 0 ? "font-semibold text-ember" : remaining < 80 ? "text-amber" : ""}
+          >
+            {text.length}/{MAX_MESSAGE_LENGTH}
+          </span>
         </div>
       </div>
     </div>

@@ -1,12 +1,13 @@
 "use client";
 import { useEffect } from "react";
-import { LocaleToggle } from "./LocaleToggle";
 import { StartForm } from "./StartForm";
 import { StatusStrip } from "./StatusStrip";
 import { useI18n } from "./I18nProvider";
+import { isSpacelessScript } from "@/lib/i18n";
 
 export function Landing() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const gap = isSpacelessScript(locale) ? "" : " ";
 
   useEffect(() => {
     document.title = t("meta.title");
@@ -16,17 +17,19 @@ export function Landing() {
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 pb-12 pt-6 sm:px-8">
       <header className="flex items-center justify-between gap-3 py-2">
         <span className="font-display text-2xl font-semibold tracking-tight">convoTalk</span>
-        <div className="flex items-center gap-4">
-          <span className="hidden text-sm text-muted sm:inline">{t("landing.byline")}</span>
-          <LocaleToggle />
-        </div>
+        <span className="hidden text-sm text-muted sm:inline">{t("landing.byline")}</span>
       </header>
 
       <div className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:py-16">
         <section className="min-w-0">
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-ember">{t("landing.tagline")}</p>
-          <h1 className="text-balance font-display text-5xl font-semibold leading-[1.02] tracking-tight sm:text-7xl">
-            {t("landing.h1a")} <span className="italic text-ember">{t("landing.h1b")}</span> {t("landing.h1c")}
+          <h1
+            className={`text-balance font-display font-semibold tracking-tight ${
+              // CJK glyphs are wider and have no spaces: smaller size and phrase-aware line breaks keep the headline readable.
+              isSpacelessScript(locale) ? "text-4xl leading-[1.2] [word-break:auto-phrase] sm:text-6xl" : "text-5xl leading-[1.02] sm:text-7xl"
+            }`}
+          >
+            {t("landing.h1a")}{gap}<span className="italic text-ember">{t("landing.h1b")}</span>{t("landing.h1c") && gap}{t("landing.h1c")}
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">{t("landing.body")}</p>
           <div className="mt-8"><StatusStrip /></div>
@@ -54,18 +57,18 @@ function Illustration() {
       <div className="space-y-3">
         <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-line bg-card px-4 py-3">
           <p className="text-xs font-semibold text-muted">{t("preview.speaker", { name: "Sofía", lang: "Español" })}</p>
-          <p lang="es" className="mt-1 break-words font-display text-xl leading-snug sm:text-2xl">Nunca me dijiste que te ibas.</p>
+          <p lang="es" dir="ltr" className="mt-1 break-words font-display text-xl leading-snug sm:text-2xl">Nunca me dijiste que te ibas.</p>
           <p className="mt-2 break-words border-t border-line pt-2 text-sm text-muted">
             <span className="block text-xs font-semibold">{t("msg.translation", { lang: "English" })}</span>
-            <span lang="en">You never told me you were leaving.</span>
+            <span lang="en" dir="ltr">You never told me you were leaving.</span>
           </p>
         </div>
         <div className="ml-auto max-w-[88%] rounded-2xl rounded-br-md bg-ink px-4 py-3 text-paper">
           <p className="text-xs font-semibold text-paper/75">{t("preview.speaker", { name: "Maya", lang: "English" })}</p>
-          <p lang="en" className="mt-1 break-words font-display text-xl leading-snug sm:text-2xl">I did. Twice. You weren&apos;t listening.</p>
+          <p lang="en" dir="ltr" className="mt-1 break-words font-display text-xl leading-snug sm:text-2xl">I did. Twice. You weren&apos;t listening.</p>
           <p className="mt-2 break-words border-t border-paper/20 pt-2 text-sm text-paper/80">
             <span className="block text-xs font-semibold">{t("msg.translation", { lang: "Español" })}</span>
-            <span lang="es">Sí te lo dije. Dos veces. No me estabas escuchando.</span>
+            <span lang="es" dir="ltr">Sí te lo dije. Dos veces. No me estabas escuchando.</span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs font-medium">

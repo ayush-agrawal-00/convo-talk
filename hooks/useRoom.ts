@@ -146,7 +146,7 @@ export function useRoom(roomId: string, profile: Profile) {
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         const p = payload as { senderId?: unknown; senderName?: unknown; typing?: unknown };
         if (typeof p?.senderId !== "string" || p.senderId === profileRef.current.id) return;
-        if (p.typing === true) showTyping(p.senderId, String(p.senderName ?? "Someone").slice(0, MAX_NAME_LENGTH));
+        if (p.typing === true) showTyping(p.senderId, String(p.senderName ?? "?").slice(0, MAX_NAME_LENGTH));
         else clearTyping(p.senderId);
       })
       .on("broadcast", { event: "release" }, ({ payload }) => {

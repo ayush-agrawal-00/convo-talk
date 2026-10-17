@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import { ProfileFields } from "./ProfileFields";
 import { useI18n } from "./I18nProvider";
-import type { MessageKey } from "@/lib/i18n";
+import { isLocale, type MessageKey } from "@/lib/i18n";
 import { validateName } from "@/lib/limits";
 import { generateRoomId, loadPrefill, saveSessionProfile } from "@/lib/rooms";
 
@@ -12,9 +12,9 @@ const NAVIGATION_TIMEOUT_MS = 10_000;
 
 export function StartForm() {
   const router = useRouter();
-  const { t } = useI18n();
+  // One selection drives both: the language of the whole interface and the language this person writes in.
+  const { t, locale: lang, setLocale } = useI18n();
   const [name, setName] = useState("");
-  const [lang, setLang] = useState("en");
   const [fieldError, setFieldError] = useState<MessageKey | null>(null);
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,16 +22,10 @@ export function StartForm() {
   const nameRef = useRef<HTMLInputElement>(null);
   const slowTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // The spoken language is its own setting: it's prefilled from earlier visits or the browser, never from the UI language.
+  // The language itself is restored by the I18nProvider (saved choice, else the browser's language).
   useEffect(() => {
     const prefill = loadPrefill();
-    if (prefill) {
-      setName(prefill.name); // eslint-disable-line react-hooks/set-state-in-effect
-      setLang(prefill.lang);
-    } else {
-      const guess = navigator.language?.slice(0, 2);
-      if (guess) setLang((cur) => (["es", "fr", "de", "pt", "it", "nl", "ru", "tr", "ar", "hi", "zh", "ja", "ko"].includes(guess) ? guess : cur));
-    }
+    if (prefill?.name) setName(prefill.name); // eslint-disable-line react-hooks/set-state-in-effect
     return () => clearTimeout(slowTimer.current);
   }, []);
 
@@ -82,7 +76,7 @@ export function StartForm() {
         lang={lang}
         nameRef={nameRef}
         onName={(v) => { setName(v); setFieldError(null); }}
-        onLang={setLang}
+        onLang={(v) => isLocale(v) && setLocale(v)}
         error={fieldError && t(fieldError)}
       />
       {formError && (
@@ -95,7 +89,7 @@ export function StartForm() {
         disabled={busy}
         className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 text-base font-semibold text-paper transition hover:bg-ember focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember disabled:opacity-60"
       >
-        {busy ? t("form.creating") : t("form.create")} <ArrowRight size={18} aria-hidden />
+        {busy ? t("form.creating") : t("form.create")} <ArrowRight size={18} className="rtl:-scale-x-100" aria-hidden />
       </button>
       <span role="status" className="sr-only">{busy ? t("form.creating") : ""}</span>
       <p className="mt-3 text-center text-sm text-muted">{t("form.noAccount")}</p>

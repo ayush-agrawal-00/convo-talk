@@ -5,6 +5,7 @@ import { Chat } from "./Chat";
 import { useI18n } from "./I18nProvider";
 import { JoinForm, type JoinHint } from "./JoinForm";
 import { isLanguageCode } from "@/lib/languages";
+import { isLocale } from "@/lib/i18n";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import { getClientId, loadSessionProfile, ROOM_ID_RE, saveSessionProfile } from "@/lib/rooms";
 import type { Profile } from "@/lib/types";
@@ -12,7 +13,7 @@ import type { Profile } from "@/lib/types";
 type Phase = { kind: "loading" } | { kind: "join"; hint: JoinHint } | { kind: "chat"; profile: Profile };
 
 export function RoomClient({ roomId }: { roomId: string }) {
-  const { t } = useI18n();
+  const { t, setLocale } = useI18n();
   const valid = ROOM_ID_RE.test(roomId);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
 
@@ -20,6 +21,8 @@ export function RoomClient({ roomId }: { roomId: string }) {
     if (!valid) return;
     const existing = loadSessionProfile(roomId);
     if (existing) {
+      // This tab's room identity decides the interface language, even if another tab changed the saved default.
+      if (isLocale(existing.lang)) setLocale(existing.lang);
       setPhase({ kind: "chat", profile: { id: getClientId(), ...existing } }); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
@@ -30,7 +33,7 @@ export function RoomClient({ roomId }: { roomId: string }) {
       kind: "join",
       hint: { lang: isLanguageCode(l) ? l : undefined, name: n ? n.slice(0, MAX_NAME_LENGTH) : undefined },
     });
-  }, [roomId, valid]);
+  }, [roomId, valid, setLocale]);
 
   if (!valid) {
     return (

@@ -3,6 +3,8 @@ import { MAX_CONTEXT_ITEMS, MAX_CONTEXT_LENGTH, MAX_TRANSLATE_LENGTH } from "@/l
 
 export const dynamic = "force-dynamic";
 
+const DEFAULT_MODELS = "gemini-3.5-flash-lite,gemini-2.5-flash";
+
 const SYSTEM_PROMPT = `You are a live interpreter for two people having a heated, informal conversation.
 Translate the "message" field from sourceLanguage into targetLanguage.
 - Preserve tone, intensity, sarcasm, hedging, and register. Do not soften, censor, or embellish.
@@ -48,51 +50,69 @@ export async function POST(req: Request) {
 
   if (from === to) return Response.json({ translation: text, provider: "none" });
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const payload = {
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: JSON.stringify({
-              sourceLanguage: getLanguage(from).name,
-              targetLanguage: getLanguage(to).name,
-              recentContext,
-              message: text,
-            }),
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: "application/json",
-      responseSchema: { type: "OBJECT", properties: { translation: { type: "STRING" } }, required: ["translation"] },
-      // 2.5 Flash "thinks" by default, which adds seconds of latency to a simple translation.
-      ...(model.includes("2.5-flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-    },
-  };
+  // Comma-separated list, tried in order. Free-tier quotas are per model, so a fallback keeps translation
+  // working when one model is exhausted, retired, or overloaded.
+  const models = (process.env.GEMINI_MODEL || DEFAULT_MODELS)
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(20_000),
+  const requestBody = (model: string) =>
+    JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: JSON.stringify({
+                sourceLanguage: getLanguage(from).name,
+                targetLanguage: getLanguage(to).name,
+                recentContext,
+                message: text,
+              }),
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+        responseSchema: { type: "OBJECT", properties: { translation: { type: "STRING" } }, required: ["translation"] },
+        // 2.5 Flash "thinks" by default, which adds seconds of latency to a simple translation.
+        ...(model.includes("2.5-flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
       },
-    );
-  } catch (err) {
-    const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
-    console.error("[translate] request failed:", err);
-    return timedOut
-      ? fail("The translator took too long to respond. Try again.", "timeout", 504)
-      : fail("Could not reach the translation service. Try again.", "network", 502);
+    });
+
+  let upstream: Response | undefined;
+  for (const [i, model] of models.entries()) {
+    const isLast = i === models.length - 1;
+    try {
+      upstream = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+          body: requestBody(model),
+          signal: AbortSignal.timeout(20_000),
+        },
+      );
+    } catch (err) {
+      const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      console.error(`[translate] ${model} request failed:`, err);
+      if (!isLast) continue;
+      return timedOut
+        ? fail("The translator took too long to respond. Try again.", "timeout", 504)
+        : fail("Could not reach the translation service. Try again.", "network", 502);
+    }
+    // Quota, retired/unknown model, or overload: fall through to the next model if there is one.
+    if (!isLast && [404, 429, 500, 503].includes(upstream.status)) {
+      console.warn(`[translate] ${model} returned ${upstream.status}; trying next model`);
+      continue;
+    }
+    break;
   }
+  if (!upstream) return fail("The translation service had a problem. Try again.", "upstream_error", 502);
 
   if (!upstream.ok) {
     const detail = (await upstream.text().catch(() => "")).slice(0, 500);

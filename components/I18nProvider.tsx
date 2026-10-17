@@ -1,8 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { formatTime, isLocale, languageName, translate, type Locale, type MessageKey, type Vars } from "@/lib/i18n";
-
-const STORAGE_KEY = "convotalk:ui-locale";
+import { DEFAULT_LOCALE, detectLocale, formatTime, isLocale, isRtl, languageName, translate, type Locale, type MessageKey, type Vars } from "@/lib/i18n";
+import { loadPrefill, savePrefillLang } from "@/lib/rooms";
 
 type I18n = {
   locale: Locale;
@@ -15,24 +14,27 @@ type I18n = {
 
 const Ctx = createContext<I18n | null>(null);
 
-/** Per-browser UI language. Stored locally only; never broadcast to the room. */
+/**
+ * The participant's selected language is the single source of truth: it is both their interface language (here)
+ * and the language they write in (the room profile). Stored locally per browser; never broadcast to the room.
+ */
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const initial: Locale = isLocale(stored) ? stored : navigator.language?.toLowerCase().startsWith("es") ? "es" : "en";
-    setLocaleState(initial); // eslint-disable-line react-hooks/set-state-in-effect
+    const saved = loadPrefill()?.lang;
+    setLocaleState(isLocale(saved) ? saved : detectLocale(navigator.language)); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    document.documentElement.dir = isRtl(locale) ? "rtl" : "ltr";
   }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     try {
-      window.localStorage.setItem(STORAGE_KEY, l);
+      savePrefillLang(l);
     } catch {
       /* storage unavailable: preference lasts for this page view only */
     }

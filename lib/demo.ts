@@ -1,5 +1,5 @@
 /** Scripted lines for demo mode. Pre-written samples, NOT produced by any translation service. */
-export const DEMO_PARTNER = { id: "demo-partner", name: "Sofía (sample)", lang: "es" };
+export const DEMO_PARTNER = { id: "demo-partner", name: "Sofía", lang: "es" };
 
 export const DEMO_LINES: { text: string; sample: string }[] = [
   {
